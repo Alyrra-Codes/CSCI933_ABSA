@@ -5,6 +5,9 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Embedding, LSTM, Dense, Attention
 import numpy as np
 import matplotlib.pyplot as plt
+from nltk.corpus import stopwords
+from nltk.stem import PorterStemmer, WordNetLemmatizer
+import string
 
 # Load IMDB dataset
 imdb = tf.keras.datasets.imdb
@@ -20,11 +23,35 @@ def decode_review(encoded_review):
 x_train_text = [decode_review(review) for review in x_train]
 x_test_text = [decode_review(review) for review in x_test]
 
+def preprocess_data(dataset):
+    # load stopwords
+    stop_words = set(stopwords.words('english'))
+    #intialise stemmer
+    stemmer = PorterStemmer()
+    # initialise lemmantizer
+    lemmatizer = WordNetLemmatizer()
+    
+    # apply processing
+    def preprocess_text(text):
+        # standardise case
+        text = text.lower()
+        # remove puntuaction
+        text = text.translate(str.maketrans('', '', string.punctuation))
+        # remove stopwords and apply stemming and lemmatisation
+        words = text.split()
+        processed_words = [lemmatizer.lemmatize(stemmer.stem(word)) for word in words if word not in stop_words]
+        return ' '.join(processed_words)
+    # apply over the entire dataset
+    return [preprocess_text(text) for text in dataset]
+
+preprocessed_x_train_text = preprocess_data(x_train_text)
+preprocessed_x_test_text = preprocess_data(x_test_text)
+
 # Tokenize and pad sequences
 tokenizer = Tokenizer(num_words=10000)
-tokenizer.fit_on_texts(x_train_text)
-x_train_seq = tokenizer.texts_to_sequences(x_train_text)
-x_test_seq = tokenizer.texts_to_sequences(x_test_text)
+tokenizer.fit_on_texts(preprocessed_x_train_text)
+x_train_seq = tokenizer.texts_to_sequences(preprocessed_x_train_text)
+x_test_seq = tokenizer.texts_to_sequences(preprocessed_x_test_text)
 
 max_len = 250
 x_train_pad = pad_sequences(x_train_seq, maxlen=max_len)
@@ -147,4 +174,3 @@ plot_history(history_absa)
 
 # Evaluate the ABSA model
 absa_model.evaluate(x_test_pad, aspect_labels_test)
-
